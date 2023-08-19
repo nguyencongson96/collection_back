@@ -1,4 +1,4 @@
-import { Throw } from "../config/type";
+import { Throw } from "../types/custom";
 
 const _throw = ({ errors = { field: "", message: "" }, meta = "", message = "", code = 500 }: Throw) => {
   // !message && (message = "");

@@ -1,15 +1,10 @@
 import { Request, Response, NextFunction } from "express";
 
 const errHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
-  console.log(err.stack); // Log the error stack trace to the console
+  console.log(err.stack, err.name); // Log the error stack trace to the console
 
   const { errors, message, meta, code } = err;
   switch (err.name) {
-    // If the error is a validation error, return a 400 Bad Request status code with the validation errors as JSON
-    case "ValidationError":
-      const result = Object.keys(err.errors).reduce((obj, key) => Object.assign(obj, { [key]: err.errors[key].message }), {});
-      return res.status(400).json({ errors: result, meta, message: "Validation Error" });
-
     case "TypeError":
       return res.status(400).json({ errors: err.message, meta, message: "TypeError" });
 
