@@ -66,13 +66,30 @@ const authController = {
   }),
 
   update: asyncWrapper(async (req: UserRequest, res: Response) => {
-    const { password } = req.body;
     const foundUser = req.userInfo;
-    if (password) {
-      const hashedPwd = await bcrypt.hash(password, 10);
-      await connection.query(`UPDATE users SET password=? WHERE user_id=?`, [hashedPwd, foundUser?.user_id]);
+    const { username, password } = req.body;
+
+    let sql: string = `UPDATE users SET `,
+      vars: string[] = [];
+
+    //Update sql statement and vars array if username existed
+    if (username) {
+      sql += "username = ?";
+      vars.push(username);
     }
 
+    //Update sql statement and vars array if password existed
+    if (password) {
+      if (username) sql += ", ";
+      const hashedPwd = await bcrypt.hash(password, 10);
+      sql += "password = ?";
+      vars.push(hashedPwd);
+    }
+
+    //Send sql statement to DB
+    await connection.query(`${sql} WHERE user_id=?`, [vars.concat(foundUser.user_id)]);
+
+    //Send to front
     return res.status(201).json({ message: `update account ${foundUser.username} successfully` });
   }),
 
