@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 
 const errHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
-  console.log(err.stack, err.name); // Log the error stack trace to the console
+  console.log(err.stack); // Log the error stack trace to the console
 
   const { errors, message, meta, code } = err;
   switch (err.name) {
@@ -19,7 +19,9 @@ const errHandler = (err: any, req: Request, res: Response, next: NextFunction) =
       return res.status(500).json({ errors: err.message, message: "FirebaseError" });
 
     default:
-      return res.status(code || 500).json({ errors, meta, message });
+      console.log(JSON.stringify(err));
+      if (err.sql) return res.status(500).json({ message: err.message, meta: err.code });
+      else return res.status(code || 500).json({ errors, meta, message });
   }
 };
 
