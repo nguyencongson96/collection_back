@@ -3,8 +3,9 @@ import asyncWrapper from "./asyncWrapper";
 import _throw from "../utils/_throw";
 import { Response, NextFunction } from "express";
 import "dotenv/config";
-import connection from "../config/database";
-import { User, UserRequest } from "../types/custom";
+// import connection from "../config/database";
+import { UserRequest } from "../types/custom";
+import Users from "../models/users";
 
 const verifyJWT = asyncWrapper(async (req: UserRequest, res: Response, next: NextFunction) => {
   const accessTokenSecret: string = process.env.ACCESS_TOKEN_SECRET || "";
@@ -29,11 +30,21 @@ const verifyJWT = asyncWrapper(async (req: UserRequest, res: Response, next: Nex
       err && _throw({ code: 403, message: "invalid token" });
     });
 
-    const result: any[] = await connection.query(`SELECT * FROM users WHERE accessToken=?`, [accessToken]);
-    const row: User[] = result[0];
-    row.length === 0 && _throw({ code: 404, message: "user not found" });
+    // Find the token in the database, if the token is not found in the database, return a 403 Forbidden status code
+    const foundUser = await Users.findOne({ accessToken });
 
-    req.userInfo = row[0];
+    if (!foundUser)
+      _throw({
+        code: 403,
+        message: "outdated token",
+      });
+    else res.locals.userInfo = foundUser;
+
+    // const result: any[] = await connection.query(`SELECT * FROM users WHERE accessToken=?`, [accessToken]);
+    // const row: User[] = result[0];
+    // row.length === 0 && _throw({ code: 404, message: "user not found" });
+
+    // req.userInfo = row[0];
   } else _throw({ code: 401, message: "auth header not found" });
 
   // Call the next middleware function

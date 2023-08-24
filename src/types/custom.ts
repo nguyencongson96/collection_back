@@ -1,12 +1,13 @@
 import { Request } from "express";
 
 export interface User {
-  user_id: string;
+  _id: string;
   email: string;
   username: string;
   password: string;
   createdAt: Date;
   lastUpdatedAt: Date;
+  accessToken: string;
   passwordToken?: string;
 }
 
