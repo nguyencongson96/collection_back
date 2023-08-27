@@ -1,8 +1,9 @@
 import authRoute from "./auth";
 import testRoute from "./test";
-import drinkRoute from "./drinks";
-import genreRoute from "./genres";
+import drinkRoute from "./drinks/drinks";
+import genreRoute from "./genre/genres";
 import flavorRoute from "./flavors";
+import playlistRoute from "./genre/playlists";
 import { Router } from "express";
 
 const routes: { path: string; route: Router }[] = [
@@ -11,6 +12,7 @@ const routes: { path: string; route: Router }[] = [
   { path: "/drink", route: drinkRoute },
   { path: "/genre", route: genreRoute },
   { path: "/flavor", route: flavorRoute },
+  { path: "/playlist", route: playlistRoute },
 ];
 
 export default routes;

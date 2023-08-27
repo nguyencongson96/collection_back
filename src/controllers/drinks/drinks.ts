@@ -1,7 +1,9 @@
 import { Request, Response } from "express";
-import connection from "../config/database";
-import _throw from "../utils/_throw";
-import asyncWrapper from "../middleware/asyncWrapper";
+import connection from "../../config/database";
+import _throw from "../../utils/_throw";
+import asyncWrapper from "../../middleware/asyncWrapper";
+import { UserRequest } from "../../types/custom";
+import Drinks from "../../models/drinks/drinks";
 
 const drinkController = {
   match: asyncWrapper(async function (req: Request, res: Response) {
@@ -31,6 +33,27 @@ const drinkController = {
     row.length === 0 && _throw({ code: 404, message: "drink not found" });
 
     return res.status(200).json({ data: row[0], message: "retrieve successfully" });
+  }),
+
+  addNew: asyncWrapper(async function (req: UserRequest, res: Response) {
+    const foundUser = res.locals.userInfo;
+    const { name, title, summary, content, image } = req.body;
+
+    const foundDrink = await Drinks.find({ name });
+    if (foundDrink) _throw({ code: 400, message: "drink existed" });
+    else
+      await Drinks.create({
+        name,
+        title,
+        summary,
+        content,
+        image,
+        createdBy: foundUser._id,
+        createdAt: new Date(),
+        lastUpdatedAt: new Date(),
+      });
+
+    return res.status(201).json({ message: "created successfully" });
   }),
 };
 
