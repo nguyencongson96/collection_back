@@ -33,9 +33,7 @@ const authController = {
       foundUser.accessToken = accessToken;
       foundUser.createdAt = new Date();
       await foundUser.save();
-    } else {
-      _throw({ code: 404, message: "user not found" });
-    }
+    } else _throw({ code: 404, message: "user not found" });
 
     // //Throw an error if query return empty array
     // const result: any[] = await connection.query(`SELECT * FROM users WHERE username=?`, [username]);
@@ -52,7 +50,7 @@ const authController = {
     // await connection.query(`UPDATE users SET accessToken=?, lastUpdatedAt=? WHERE user_id=?`, [accessToken, new Date(), user_id]);
 
     //Send to front
-    return res.json({ message: "login successfully" });
+    return res.json({ data: { accessToken: foundUser?.accessToken }, message: "login successfully" });
   }),
 
   register: asyncWrapper(async function (req: Request, res: Response) {
