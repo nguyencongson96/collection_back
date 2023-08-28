@@ -6,7 +6,7 @@ import verifyJWT from "../../middleware/verifyJWT";
 const router: Router = express.Router();
 
 router.route("/").get(drinkController.match).post(verifyJWT, drinkController.addNew);
-router.route("/link").post(genreFlavorController.addNew);
+router.route("/link").post(verifyJWT, genreFlavorController.addNew);
 router.route("/:id").get(drinkController.getOne);
 
 export default router;
