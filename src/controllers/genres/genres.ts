@@ -1,9 +1,11 @@
 import { Request, Response } from "express";
 import { UserRequest } from "../../types/custom";
-import connection from "../../config/database";
+// import connection from "../../config/database";
 import _throw from "../../utils/_throw";
 import asyncWrapper from "../../middleware/asyncWrapper";
 import Genres from "../../models/genre/genres";
+import GenreFlavor from "../../models/drinks/genre_flavor";
+import { Types } from "mongoose";
 
 const genreController = {
   getList: asyncWrapper(async function (req: Request, res: Response) {
@@ -21,17 +23,31 @@ const genreController = {
   getFlavorMatch: asyncWrapper(async function (req: Request, res: Response) {
     const { id } = req.params;
 
-    const sql = `SELECT f.flavor_id, f.name as flavor_name, IF(ISNULL(dl.link_id), false, true) as isMatched 
-    FROM flavors f
-    LEFT JOIN drink_links dl
-	  ON dl.flavor_id=f.flavor_id AND dl.genre_id=?
-    `;
+    const result = await GenreFlavor.aggregate([
+      { $match: { genreId: new Types.ObjectId(id) } },
+      {
+        $lookup: {
+          from: "flavors",
+          localField: "flavorId",
+          foreignField: "_id",
+          as: "flavor",
+          pipeline: [{ $project: { title: 1, image: 1 } }],
+        },
+      },
+      { $project: { flavor: 1 } },
+    ]);
 
-    const result: any[] = await connection.query(sql, [id]);
-    const row: any[] = result[0];
-    row.length === 0 && _throw({ code: 404, message: "no match" });
+    // const sql = `SELECT f.flavor_id, f.name as flavor_name, IF(ISNULL(dl.link_id), false, true) as isMatched
+    // FROM flavors f
+    // LEFT JOIN drink_links dl
+    // ON dl.flavor_id=f.flavor_id AND dl.genre_id=?
+    // `;
 
-    return res.status(200).json({ data: row, message: "retrieve successfully" });
+    // const result: any[] = await connection.query(sql, [id]);
+    // const row: any[] = result[0];
+    // row.length === 0 && _throw({ code: 404, message: "no match" });
+
+    return res.status(200).json({ data: result[0], message: "retrieve successfully" });
   }),
 
   addNew: asyncWrapper(async function (req: UserRequest, res: Response) {

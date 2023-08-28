@@ -5,7 +5,7 @@ import asyncWrapper from "../middleware/asyncWrapper";
 import { UserRequest } from "../types/custom";
 import Flavors from "../models/flavors";
 import GenreFlavor from "../models/drinks/genre_flavor";
-import mongoose from "mongoose";
+import { Types } from "mongoose";
 
 const flavorController = {
   getList: asyncWrapper(async function (req: Request, res: Response) {
@@ -22,7 +22,19 @@ const flavorController = {
   getGenreMatch: asyncWrapper(async function (req: Request, res: Response) {
     const { id } = req.params;
 
-    const foundGenreList = await GenreFlavor.aggregate([{ $match: { flavorId: new mongoose.Types.ObjectId(id) } }]);
+    const result = await GenreFlavor.aggregate([
+      { $match: { flavorId: new Types.ObjectId(id) } },
+      {
+        $lookup: {
+          from: "genres",
+          localField: "genreId",
+          foreignField: "_id",
+          as: "genre",
+          pipeline: [{ $project: { title: 1, image: 1 } }],
+        },
+      },
+      { $project: { _id: 0, genre: 1 } },
+    ]);
 
     // const sql = `SELECT g.genre_id, g.name as genre_name, IF(ISNULL(dl.link_id), false, true) as isMatched
     // FROM genres g
@@ -34,7 +46,7 @@ const flavorController = {
     // const row: any[] = result[0];
     // row.length === 0 && _throw({ code: 404, message: "no match" });
 
-    return res.status(200).json({ data: foundGenreList, message: "retrieve successfully" });
+    return res.status(200).json({ data: result[0], message: "retrieve successfully" });
   }),
 
   addNew: asyncWrapper(async function (req: UserRequest, res: Response) {

@@ -18,30 +18,37 @@ const drinkController = {
   match: asyncWrapper(async function (req: matchRequest, res: Response) {
     const { genre_id, flavor_id } = req.query;
 
-    const result: any[] = await GenreFlavor.aggregate([
-      { $match: { genreId: new Types.ObjectId(genre_id), flavorId: new Types.ObjectId(flavor_id) } },
-      { $lookup: { from: "drinks", localField: "drinkId", foreignField: "_id", as: "drink" } },
-      { $lookup: { from: "genres", localField: "genreId", foreignField: "_id", as: "genre" } },
-      {
-        $lookup: {
-          from: "playlists",
-          localField: "genreId",
-          foreignField: "genreId",
-          as: "playlist",
-          pipeline: [{ $sample: { size: 1 } }],
-        },
-      },
-      { $unwind: "$genre" },
-      { $unwind: "$drink" },
-      { $unwind: "$playlist" },
-      {
-        $project: {
-          drink: { name: "$drink.name", summary: "$drink.summary", image: "$drink.image" },
-          genre: { title: "$genre.title", summary: "$genre.summary", image: "$genre.image" },
-          playlist: { url: "$playlist.url" },
-        },
-      },
-    ]);
+    let result: any[];
+    if (!genre_id && !flavor_id) {
+      result = await Drinks.find().select({ _id: 1, name: 1, image: 1 });
+    } else {
+      result = (
+        await GenreFlavor.aggregate([
+          { $match: { genreId: new Types.ObjectId(genre_id), flavorId: new Types.ObjectId(flavor_id) } },
+          { $lookup: { from: "drinks", localField: "drinkId", foreignField: "_id", as: "drink" } },
+          { $lookup: { from: "genres", localField: "genreId", foreignField: "_id", as: "genre" } },
+          {
+            $lookup: {
+              from: "playlists",
+              localField: "genreId",
+              foreignField: "genreId",
+              as: "playlist",
+              pipeline: [{ $sample: { size: 1 } }],
+            },
+          },
+          { $unwind: "$genre" },
+          { $unwind: "$drink" },
+          { $unwind: "$playlist" },
+          {
+            $project: {
+              drink: { name: "$drink.name", summary: "$drink.summary", image: "$drink.image" },
+              genre: { title: "$genre.title", summary: "$genre.summary", image: "$genre.image" },
+              playlist: { url: "$playlist.url" },
+            },
+          },
+        ])
+      )[0];
+    }
 
     if (result.length === 0) _throw({ code: 400, message: "did not match" });
 
@@ -58,7 +65,7 @@ const drinkController = {
     // const row: any[] = result[0];
     // row.length === 0 && _throw({ code: 404, message: "there is no match" });
 
-    return res.status(200).json({ data: result[0], message: "match successfully" });
+    return res.status(200).json({ data: result, message: "match successfully" });
   }),
 
   getOne: asyncWrapper(async function (req: Request, res: Response) {
