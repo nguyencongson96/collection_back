@@ -27,7 +27,11 @@ const verifyJWT = asyncWrapper(async (req: UserRequest, res: Response, next: Nex
 
     // Verify the access token using the secret key
     jwt.verify(accessToken, accessTokenSecret, async (err, decoded) => {
-      err && _throw({ code: 403, message: "invalid token" });
+      try {
+        err && _throw({ code: 403, message: "invalid token" });
+      } catch (error) {
+        next(error);
+      }
     });
 
     // Find the token in the database, if the token is not found in the database, return a 403 Forbidden status code
