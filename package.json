@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "npx tsc",
+    "start": "node --experimental-specifier-resolution=node dist/app.js",
     "dev": "nodemon --experimental-specifier-resolution=node src/app.ts"
   },
   "keywords": [],

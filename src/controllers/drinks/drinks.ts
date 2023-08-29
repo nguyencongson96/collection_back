@@ -25,6 +25,7 @@ const drinkController = {
       result = (
         await GenreFlavor.aggregate([
           { $match: { genreId: new Types.ObjectId(genre_id), flavorId: new Types.ObjectId(flavor_id) } },
+          { $sample: { size: 1 } },
           { $lookup: { from: "drinks", localField: "drinkId", foreignField: "_id", as: "drink" } },
           { $lookup: { from: "genres", localField: "genreId", foreignField: "_id", as: "genre" } },
           {
