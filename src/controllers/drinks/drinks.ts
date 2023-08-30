@@ -72,15 +72,42 @@ const drinkController = {
   getOne: asyncWrapper(async function (req: Request, res: Response) {
     const { id } = req.params;
 
-    const foundDrink = await Drinks.findById(id);
-    if (!foundDrink) _throw({ code: 400, message: "invalid drink" });
-    // const sql = `SELECT name, image, content FROM drinks WHERE drink_id=?`;
+    const result = await Drinks.aggregate([
+      { $match: { _id: new Types.ObjectId(id) } },
+      {
+        $lookup: {
+          from: "ingredients",
+          localField: "_id",
+          foreignField: "drinkId",
+          as: "ingredients",
+          pipeline: [{ $project: { ingredient: 1, amount: 1, calUnit: 1 } }],
+        },
+      },
+      {
+        $lookup: {
+          from: "steps",
+          localField: "_id",
+          foreignField: "drinkId",
+          as: "steps",
+          pipeline: [{ $project: { index: 1, content: 1 } }],
+        },
+      },
+      {
+        $lookup: {
+          from: "users",
+          localField: "createdBy",
+          foreignField: "_id",
+          as: "author",
+          pipeline: [{ $project: { name: "$username" } }],
+        },
+      },
+      { $unwind: "$author" },
+      { $project: { name: 1, title: 1, content: 1, image: 1, createdAt: 1, author: 1, steps: 1, ingredients: 1 } },
+    ]);
 
-    // const result: any[] = await connection.query(sql, [id]);
-    // const row: any[] = result[0];
-    // row.length === 0 && _throw({ code: 404, message: "drink not found" });
+    if (result.length === 0) _throw({ code: 400, message: "did not match" });
 
-    return res.status(200).json({ data: foundDrink, message: "retrieve successfully" });
+    return res.status(200).json({ data: result[0], message: "retrieve successfully" });
   }),
 
   addNew: asyncWrapper(async function (req: UserRequest, res: Response) {
