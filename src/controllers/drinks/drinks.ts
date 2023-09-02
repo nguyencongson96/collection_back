@@ -7,21 +7,76 @@ import Drinks from "../../models/drinks/drinks";
 import GenreFlavor from "../../models/drinks/genre_flavor";
 import { Types } from "mongoose";
 
-interface matchRequest extends Request {
+interface queryRequest extends Request {
   query: {
     genre_id: string;
     flavor_id: string;
+    page: string;
+    limit: string;
   };
 }
 
 const drinkController = {
-  match: asyncWrapper(async function (req: matchRequest, res: Response) {
+  getList: asyncWrapper(async function (req: queryRequest, res: Response) {
+    const page = Number(req.query.page ?? 1);
+    const filter = req.query.flavor_id ?? "all";
+    const limit = Number(req.query.limit ?? 9);
+
+    let aggregateArr: any[] = [];
+    if (filter !== "all") {
+      aggregateArr = aggregateArr.concat([
+        {
+          $lookup: {
+            from: "genre_flavors",
+            localField: "_id",
+            foreignField: "drinkId",
+            as: "flavorId",
+            pipeline: [{ $project: { flavorId: 1, _id: 0 } }],
+          },
+        },
+        { $unwind: "$flavorId" },
+        { $match: { "flavorId.flavorId": new Types.ObjectId(filter) } },
+      ]);
+    }
+
+    aggregateArr = aggregateArr.concat([
+      { $setWindowFields: { output: { total: { $count: {} } } } },
+      { $addFields: { page: page, limit: limit, pages: { $ceil: { $divide: ["$total", limit] } } } },
+      { $sort: { lastUpdatedAt: -1 } },
+      { $skip: (page - 1) * limit },
+      { $limit: limit },
+      {
+        $facet: {
+          meta: [
+            {
+              $group: {
+                _id: null,
+                total: { $first: "$total" },
+                limit: { $first: "$limit" },
+                page: { $first: "$page" },
+                pages: { $first: "$pages" },
+              },
+            },
+            { $unset: "_id" },
+          ],
+          data: [{ $project: { _id: 1, title: 1, image: 1 } }],
+        },
+      },
+      { $unwind: "$meta" },
+    ]);
+
+    const result = await Drinks.aggregate(aggregateArr);
+    if (result.length === 0) _throw({ code: 400, message: "no data" });
+
+    return res.status(200).json(Object.assign({ message: "retrieve successfully" }, result[0]));
+  }),
+
+  match: asyncWrapper(async function (req: queryRequest, res: Response) {
     const { genre_id, flavor_id } = req.query;
 
-    let result: any[];
-    if (!genre_id && !flavor_id) {
-      result = await Drinks.find().select({ _id: 1, name: 1, image: 1 });
-    } else {
+    let result: any[] = [];
+    if (!genre_id && !flavor_id) _throw({ code: 400, message: "genre_id and flavor_id are required" });
+    else {
       result = (
         await GenreFlavor.aggregate([
           { $match: { genreId: new Types.ObjectId(genre_id), flavorId: new Types.ObjectId(flavor_id) } },
@@ -49,9 +104,9 @@ const drinkController = {
           },
         ])
       )[0];
+      if (result.length === 0) _throw({ code: 400, message: "did not match" });
     }
-
-    if (result.length === 0) _throw({ code: 400, message: "did not match" });
+    return res.status(200).json({ data: result, message: "match successfully" });
 
     // const sql = `SELECT d.drink_id, d.name as drink_name, d.image as drink_image, d.summary as drink_summary, g.content as genre, g.description as genre_summary, p.url as playlist
     //   FROM drink_links dl
@@ -65,8 +120,6 @@ const drinkController = {
     // const result: any[] = await connection.query(sql, [genre_id, flavor_id]);
     // const row: any[] = result[0];
     // row.length === 0 && _throw({ code: 404, message: "there is no match" });
-
-    return res.status(200).json({ data: result, message: "match successfully" });
   }),
 
   getOne: asyncWrapper(async function (req: Request, res: Response) {
@@ -94,6 +147,16 @@ const drinkController = {
       },
       {
         $lookup: {
+          from: "rate_summaries",
+          localField: "_id",
+          foreignField: "drinkId",
+          as: "rate",
+          pipeline: [{ $project: { average: 1 } }],
+        },
+      },
+      { $unwind: "$rate" },
+      {
+        $lookup: {
           from: "users",
           localField: "createdBy",
           foreignField: "_id",
@@ -102,7 +165,19 @@ const drinkController = {
         },
       },
       { $unwind: "$author" },
-      { $project: { name: 1, title: 1, content: 1, image: 1, createdAt: 1, author: 1, steps: 1, ingredients: 1 } },
+      {
+        $project: {
+          name: 1,
+          title: 1,
+          content: 1,
+          image: 1,
+          rate: "$rate.average",
+          createdAt: 1,
+          author: 1,
+          steps: 1,
+          ingredients: 1,
+        },
+      },
     ]);
 
     if (result.length === 0) _throw({ code: 400, message: "did not match" });

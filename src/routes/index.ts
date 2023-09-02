@@ -5,6 +5,7 @@ import genreRoute from "./genre/genres";
 import flavorRoute from "./flavors";
 import playlistRoute from "./genre/playlists";
 import RecipeRoute from "./drinks/recipe";
+import rateRoute from "./drinks/rates";
 import { Router } from "express";
 
 const routes: { path: string; route: Router }[] = [
@@ -15,6 +16,7 @@ const routes: { path: string; route: Router }[] = [
   { path: "/flavor", route: flavorRoute },
   { path: "/playlist", route: playlistRoute },
   { path: "/recipe", route: RecipeRoute },
+  { path: "/rate", route: rateRoute },
 ];
 
 export default routes;
