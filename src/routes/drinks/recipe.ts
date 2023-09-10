@@ -4,6 +4,9 @@ import verifyJWT from "../../middleware/verifyJWT";
 
 const router: Router = express.Router();
 
-router.route("/").post(verifyJWT, recipeController.addNew);
+router.use(verifyJWT);
+
+router.route("/").post(recipeController.addNew);
+router.route("/save").post(recipeController.saved).get(recipeController.getSavedList)
 
 export default router;

@@ -18,8 +18,17 @@ const errHandler = (err: any, req: Request, res: Response, next: NextFunction) =
     case "FirebaseError":
       return res.status(500).json({ errors: err.message, message: "FirebaseError" });
 
+    case "ValidationError":
+      const result = Object.keys(err.errors).reduce((obj, key) => Object.assign(obj, { [key]: err.errors[key].message }), {});
+      return res.status(400).json({ errors: result, meta, message: "Validation Error" });
+
+    case "MongooseError":
+      return res.status(500).json({ errors: err.message, message: "Database Error" });
+
+    case "MongoServerError":
+      return res.status(500).json({ errors: err.message, message: "Database Error" });
+
     default:
-      console.log(JSON.stringify(err));
       if (err.sql) return res.status(500).json({ message: err.message, meta: err.code });
       else return res.status(code || 500).json({ errors, meta, message });
   }

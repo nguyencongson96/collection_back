@@ -8,6 +8,7 @@ const router: Router = express.Router();
 router.route("/").get(drinkController.getList).post(verifyJWT, drinkController.addNew);
 router.route("/match").get(drinkController.match);
 router.route("/link").post(verifyJWT, genreFlavorController.addNew);
-router.route("/:id").get(drinkController.getOne);
+router.route("/history").get(verifyJWT, drinkController.getHistoryMatch);
+router.route("/:id").get(drinkController.getDetail);
 
 export default router;

@@ -1,11 +1,13 @@
 import { Request, Response } from "express";
 // import connection from "../../config/database";
+import { Types } from "mongoose";
 import _throw from "../../utils/_throw";
 import asyncWrapper from "../../middleware/asyncWrapper";
 import { UserRequest } from "../../types/custom";
 import Drinks from "../../models/drinks/drinks";
 import GenreFlavor from "../../models/drinks/genre_flavor";
-import { Types } from "mongoose";
+import Users from "../../models/users";
+import HistoryMatches from "../../models/drinks/history_matches";
 
 interface queryRequest extends Request {
   query: {
@@ -77,36 +79,52 @@ const drinkController = {
     let result: any[] = [];
     if (!genre_id && !flavor_id) _throw({ code: 400, message: "genre_id and flavor_id are required" });
     else {
-      result = (
-        await GenreFlavor.aggregate([
-          { $match: { genreId: new Types.ObjectId(genre_id), flavorId: new Types.ObjectId(flavor_id) } },
-          { $sample: { size: 1 } },
-          { $lookup: { from: "drinks", localField: "drinkId", foreignField: "_id", as: "drink" } },
-          { $lookup: { from: "genres", localField: "genreId", foreignField: "_id", as: "genre" } },
-          {
-            $lookup: {
-              from: "playlists",
-              localField: "genreId",
-              foreignField: "genreId",
-              as: "playlist",
-              pipeline: [{ $sample: { size: 1 } }],
-            },
+      result = await GenreFlavor.aggregate([
+        { $match: { genreId: new Types.ObjectId(genre_id), flavorId: new Types.ObjectId(flavor_id) } },
+        { $sample: { size: 1 } },
+        { $lookup: { from: "drinks", localField: "drinkId", foreignField: "_id", as: "drink" } },
+        { $lookup: { from: "genres", localField: "genreId", foreignField: "_id", as: "genre" } },
+        {
+          $lookup: {
+            from: "playlists",
+            localField: "genreId",
+            foreignField: "genreId",
+            as: "playlist",
+            pipeline: [{ $sample: { size: 1 } }],
           },
-          { $unwind: "$genre" },
-          { $unwind: "$drink" },
-          { $unwind: "$playlist" },
-          {
-            $project: {
-              drink: { name: "$drink.name", summary: "$drink.summary", image: "$drink.image" },
-              genre: { title: "$genre.title", summary: "$genre.summary", image: "$genre.image" },
-              playlist: { url: "$playlist.url" },
-            },
+        },
+        { $unwind: "$genre" },
+        { $unwind: "$drink" },
+        { $unwind: "$playlist" },
+        {
+          $project: {
+            drink: { _id: "$drink._id", name: "$drink.name", summary: "$drink.summary", image: "$drink.image" },
+            genre: { _id: "$genre._id", title: "$genre.title", summary: "$genre.summary", image: "$genre.image" },
+            playlist: { _id: "$playlist._id", url: "$playlist.url" },
           },
-        ])
-      )[0];
+        },
+      ]);
       if (result.length === 0) _throw({ code: 400, message: "did not match" });
     }
-    return res.status(200).json({ data: result, message: "match successfully" });
+
+    const authHeader: string = req.headers.authorization || "";
+    if (authHeader) {
+      !authHeader.startsWith("Bearer ") && _throw({ code: 403, message: "invalid token" });
+      const accessToken = authHeader.split(" ")[1];
+      const foundUser = await Users.findOne({ accessToken });
+
+      if (foundUser)
+        await HistoryMatches.create({
+          drinkId: result[0].drink._id,
+          genreId: genre_id,
+          flavorId: flavor_id,
+          createdAt: new Date(),
+          createdBy: foundUser._id,
+        });
+      else _throw({ code: 403, message: "outdated token" });
+    }
+
+    return res.status(200).json({ data: result[0], message: "match successfully" });
 
     // const sql = `SELECT d.drink_id, d.name as drink_name, d.image as drink_image, d.summary as drink_summary, g.content as genre, g.description as genre_summary, p.url as playlist
     //   FROM drink_links dl
@@ -122,7 +140,7 @@ const drinkController = {
     // row.length === 0 && _throw({ code: 404, message: "there is no match" });
   }),
 
-  getOne: asyncWrapper(async function (req: Request, res: Response) {
+  getDetail: asyncWrapper(async function (req: Request, res: Response) {
     const { id } = req.params;
 
     const result = await Drinks.aggregate([
@@ -183,6 +201,46 @@ const drinkController = {
     if (result.length === 0) _throw({ code: 400, message: "did not match" });
 
     return res.status(200).json({ data: result[0], message: "retrieve successfully" });
+  }),
+
+  getHistoryMatch: asyncWrapper(async function (req: UserRequest, res: Response) {
+    const foundUser = res.locals.userInfo;
+
+    const result = await HistoryMatches.aggregate([
+      { $match: { createdBy: new Types.ObjectId(foundUser._id) } },
+      {
+        $lookup: {
+          from: "drinks",
+          localField: "drinkId",
+          foreignField: "_id",
+          as: "drink",
+          pipeline: [{ $project: { _id: 1, name: 1, image: 1 } }],
+        },
+      },
+      { $unwind: "$drink" },
+      {
+        $lookup: {
+          from: "genres",
+          localField: "genreId",
+          foreignField: "_id",
+          as: "genre",
+          pipeline: [{ $project: { _id: 1, title: 1, image: 1 } }],
+        },
+      },
+      { $unwind: "$genre" },
+      {
+        $lookup: {
+          from: "flavors",
+          localField: "flavorId",
+          foreignField: "_id",
+          as: "flavor",
+          pipeline: [{ $project: { _id: 1, title: 1, image: 1 } }],
+        },
+      },
+      { $unwind: "$flavor" },
+    ]);
+
+    return res.status(200).json(result);
   }),
 
   addNew: asyncWrapper(async function (req: UserRequest, res: Response) {
