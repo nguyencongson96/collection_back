@@ -9,6 +9,6 @@ router.route("/").get(drinkController.getList).post(verifyJWT, drinkController.a
 router.route("/match").get(drinkController.match);
 router.route("/link").post(verifyJWT, genreFlavorController.addNew);
 router.route("/history").get(verifyJWT, drinkController.getHistoryMatch);
-router.route("/:id").get(drinkController.getDetail);
+router.route("/:id").get(verifyJWT, drinkController.getDetail);
 
 export default router;
