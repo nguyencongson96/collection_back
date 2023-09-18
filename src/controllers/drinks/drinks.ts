@@ -61,7 +61,7 @@ const drinkController = {
             },
             { $unset: "_id" },
           ],
-          data: [{ $project: { _id: 1, title: 1, image: 1 } }],
+          data: [{ $project: { _id: 1, title: 1, name: 1, image: 1 } }],
         },
       },
       { $unwind: "$meta" },
